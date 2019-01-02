@@ -1,9 +1,9 @@
 #przygotowywanie danych
-set.seed(42) #aby wyniki były jednakowe po każdym uruchomieniu skryptu
+set.seed(1337) #aby wyniki były jednakowe po każdym uruchomieniu skryptu
 data = read.csv2("Pokemon.csv", sep = ",")[,-1]
 index = sample.int(nrow(data), 800, replace = F) 
-index.train = index[1:200]
-index.test = index[201:800]
+index.train = index[1:600]
+index.test = index[601:800]
 train = data[index.train,]
 test = data[index.test,]
 attach(train)
@@ -59,8 +59,8 @@ cost.nnet.nmin = cost(pr.nn_, test$HP) #Kosz z przesklaowaniem do centrum w mini
 
 ### Drzewo decyzyjne
 library(tree)
-train.dt = data.dt[index.train,]
-test.dt = data.dt[index.test,]
+train.dt = data[index.train,]
+test.dt = data[index.test,]
 model.dt = tree(HP ~ Type.1 + Attack + Defense + Sp..Atk + Sp..Def + Speed + Generation + Legendary, data = train.dt)
 plot(model.dt)
 text(model.dt)
@@ -105,16 +105,16 @@ table(A,B) #Na danych testowych
 ### kNN
 #Jakiego typu jest pokemon?
 library(class)
-model.knn=knn(train = cbind(train$Attack, train$HP, train$Defense, train$Sp..Atk, train$Sp..Def, train$Speed), test = cbind(test$Attack, test$HP, test$Defense, test$Sp..Atk, test$Sp..Def, test$Speed), train$Type.1, k=4)
+model.knn=knn(train = cbind(train$Attack, train$HP, train$Defense, train$Sp..Atk, train$Sp..Def, train$Speed), test = cbind(test$Attack, test$HP, test$Defense, test$Sp..Atk, test$Sp..Def, test$Speed), train$Type.1, k=10)
 table(model.knn, test$Type.1)
 sum(model.knn == test$Type.1)
 
 records = c()
-for(i in 1:50) {
+for(i in 1:10) {
   model.knn=knn(train = cbind(train$Attack, train$HP, train$Defense, train$Sp..Atk, train$Sp..Def, train$Speed), test = cbind(test$Attack, test$HP, test$Defense, test$Sp..Atk, test$Sp..Def, test$Speed), train$Type.1, k=i)
   records = c(records, sum(model.knn == test$Type.1))
 }
-plot(1:50, records)
+plot(1:10, records)
 k = which(records == max(records))
 model.knn=knn(train = cbind(train$Attack, train$HP, train$Defense, train$Sp..Atk, train$Sp..Def, train$Speed), test = cbind(test$Attack, test$HP, test$Defense, test$Sp..Atk, test$Sp..Def, test$Speed), train$Type.1, k=k)
 usefullness.knn = records[k]
@@ -132,14 +132,6 @@ summary(aov(Sp..Def ~ Type.1))
 ### LDA - zakładam normalność wszystki statystyk
 hist(HP)
 library(MASS)
-#Testy normalności 
-shapiro.test(Attack)
-shapiro.test(HP)
-shapiro.test(Defense)
-shapiro.test(Sp..Atk)
-shapiro.test(Sp..Def)
-#Wychodzi, że jedynie zmiennej Atack nie można odrzucić normalności
-hist(Attack)
 
 model.lda = lda(Type.1 ~ HP + Attack + Defense + Sp..Atk + Sp..Def + Speed, data = train)
 predictions.lda = predict(model.lda, test)$class
@@ -160,7 +152,7 @@ n.c <- names(train_.c)
 levels(data$Type.1)
 toPredictLabel = paste(levels(data$Type.1), collapse = " + ")
 f.c <- as.formula(paste(toPredictLabel, "~", paste(c("HP", "Attack", "Defense" , "Sp..Atk", "Sp..Def", "Speed"), collapse = " + ")))
-nn <- neuralnet(f.c,data=train_.c, hidden=c(2,2), linear.output=F, learningrate = 0.4, stepmax = 300000, act.fct = "logistic")
+nn <- neuralnet(f.c,data=train_.c, hidden=c(2,2), linear.output=F, stepmax = 100000, act.fct = "logistic")
 pr.nn <- compute(nn,test_.c[,1:6])
 pr.nn = pr.nn$net.result
 predictions = levels(data$Type.1)[max.col(pr.nn)]
