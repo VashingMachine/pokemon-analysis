@@ -8,7 +8,26 @@ train = data[index.train,]
 test = data[index.test,]
 attach(train)
 
-#deklaracji funkcji kosztu i normalizacji danych69
+### Sprawdzenie zmiennych
+
+# Widzimy, że total jest mocno skorelowane (kto by się spodziewał)
+# Do regresji logistycznej wszystkie zmienne objaśniające muszą być liniowo niezależne
+cor(cbind(train$HP, train$Attack, train$Total, train$Defense, train$Sp..Atk, train$Sp..Def, train$Speed))
+
+# Do regresji liniowej potrzebujemy, aby zmienna celu miała rozkład normalny
+hist(train$HP)
+hist(train$Attack)
+hist(train$Total)
+hist(train$Defense)
+hist(train$Sp..Atk)
+hist(train$Sp..Def)
+hist(train$Speed)
+
+# Macierze kowariancji nie są podobne w klasach, ale i tak użyłem kNN
+cor(train[train$Type.1 == "Dragon",4:10])
+cor(train[train$Type.1 == "Bug",4:10])
+
+#deklaracji funkcji kosztu i normalizacji danych
 cost = function(y, t) {
   return( sum( (y-t)^2 ) / length(y) )
 }
@@ -23,7 +42,7 @@ normalize.2 <- function(x) {
 ###### Problem regresyjny: Próbujemy ustalić HP pokemona w zależności od jego pozostałych statystyk
 
 ### Model liniowy
-model.linear.full = lm(HP ~ Attack + Defense + Sp..Atk + Sp..Def + Speed + Type.1 + Legendary, train)
+model.linear.full = lm(HP ~ Attack + Defense + Sp..Atk + Sp..Def + Speed + Type.1 + Type.2 + Legendary, train)
 model.linear.optimal = lm(HP ~ Attack + Defense + Sp..Def, train) #tutaj metodą sprawdzania istotności zmiennych doszedłem do tego modelu
 
 prediction.full = predict(model.linear.full, test)
@@ -34,26 +53,17 @@ cost.linear.full = cost(prediction.full, test$HP)
 ### Sieci neuronowe
 library(neuralnet)
 data.nnet = subset(data, select = c("Attack", "Defense", "Sp..Def" , "HP"))
-scaled = as.data.frame(lapply(data.nnet, normalize.2))
-train_ = scaled[index.train,]
-test_ = scaled[index.test,]
-
-n <- names(train_)
-f <- as.formula(paste("HP ~", paste(n[!n %in% "HP"], collapse = " + ")))
-nn <- neuralnet(f,data=train_,hidden=c(5,3),linear.output=T)
-
-pr.nn <- compute(nn,test_[,-4])
-pr.nn_ <- pr.nn$net.result * sd(data$HP) + mean(data$HP)
-cost.nnet.n =  cost(pr.nn_, test$HP) #Koszt z użyciem normalizacji do rozkładu normalnego
-
+#data.nnet = cbind(data.nnet, class.ind(data$Type.2)) #dodanie tych zmiennych psuje
 maxs <- apply(data.nnet, 2, max)
 mins <- apply(data.nnet, 2, min)
 scaled = as.data.frame(scale(data.nnet, center = mins, scale = maxs - mins))
 train_ = scaled[index.train,]
 test_ = scaled[index.test,]
-nn <- neuralnet(f,data=train_,hidden=c(5,3),linear.output=T)
+n <- names(train_)
+f <- as.formula(paste("HP ~", paste(n[!n %in% "HP"], collapse = " + ")))
+nn <- neuralnet(f,data=train_,hidden=c(5, 6),linear.output=T, learningrate = 0.004)
 
-pr.nn <- compute(nn,test_[,-4])
+pr.nn <- compute(nn,test_[-4])
 pr.nn_ <- pr.nn$net.result*(max(data$HP)-min(data$HP))+min(data$HP)
 cost.nnet.nmin = cost(pr.nn_, test$HP) #Kosz z przesklaowaniem do centrum w minimum
 
@@ -67,7 +77,7 @@ text(model.dt)
 cost.tree.single =  cost(predict(model.dt, test.dt), test$HP)
 ### Losowy las? (Random Forest)
 library(randomForest)
-model.rf = randomForest(HP ~ Type.1 + Attack + Defense + Sp..Def, train.dt, keep.forest=T, ntree=100)
+model.rf = randomForest(HP ~ Type.1 + Attack + Defense + Sp..Def + Type.2, train.dt, keep.forest=T, ntree=100)
 cost.tree.many = cost(predict(model.rf, test.dt), test.dt$HP)
 
 cost.mean = cost(test$HP, rep( mean(test$HP), length(test$HP) ))
@@ -75,8 +85,7 @@ cost.mean = cost(test$HP, rep( mean(test$HP), length(test$HP) ))
 cat(paste("Total: ", cost.mean))
 cat(paste("Linear full: ", cost.linear.full))
 cat(paste("Linear optimal: ", cost.linear.optimal))
-cat(paste("NNet normalization: ", cost.nnet.n)) 
-cat(paste("NNet normalization min: ", cost.nnet.nmin)) #a ten najlepszy ze wszystkich
+cat(paste("NNet normalization min: ", cost.nnet.nmin))
 cat(paste("Decision tree: ", cost.tree.single))
 cat(paste("RandomForest: ", cost.tree.many))
 
@@ -152,7 +161,7 @@ n.c <- names(train_.c)
 levels(data$Type.1)
 toPredictLabel = paste(levels(data$Type.1), collapse = " + ")
 f.c <- as.formula(paste(toPredictLabel, "~", paste(c("HP", "Attack", "Defense" , "Sp..Atk", "Sp..Def", "Speed"), collapse = " + ")))
-nn <- neuralnet(f.c,data=train_.c, hidden=c(2,2), linear.output=F, stepmax = 100000, act.fct = "logistic")
+nn <- neuralnet(f.c,data=train_.c, hidden=c(2), linear.output=F, stepmax = 100000, act.fct = "logistic")
 pr.nn <- compute(nn,test_.c[,1:6])
 pr.nn = pr.nn$net.result
 predictions = levels(data$Type.1)[max.col(pr.nn)]
