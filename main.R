@@ -2,8 +2,8 @@
 set.seed(1337) #aby wyniki były jednakowe po każdym uruchomieniu skryptu
 data = read.csv2("Pokemon.csv", sep = ",")[,-1]
 index = sample.int(nrow(data), 800, replace = F) 
-index.train = index[1:600]
-index.test = index[601:800]
+index.train = index[1:400]
+index.test = index[401:800]
 train = data[index.train,]
 test = data[index.test,]
 attach(train)
@@ -63,7 +63,7 @@ n <- names(train_)
 f <- as.formula(paste("HP ~", paste(n[!n %in% "HP"], collapse = " + ")))
 nn <- neuralnet(f,data=train_,hidden=c(5, 6),linear.output=T, learningrate = 0.004)
 
-pr.nn <- compute(nn,test_[-4])
+pr.nn <- compute(nn,test_[,-4])
 pr.nn_ <- pr.nn$net.result*(max(data$HP)-min(data$HP))+min(data$HP)
 cost.nnet.nmin = cost(pr.nn_, test$HP) #Kosz z przesklaowaniem do centrum w minimum
 
@@ -142,7 +142,7 @@ summary(aov(Sp..Def ~ Type.1))
 hist(HP)
 library(MASS)
 
-model.lda = lda(Type.1 ~ HP + Attack + Defense + Sp..Atk + Sp..Def + Speed, data = train)
+model.lda = lda(Type.1 ~ HP + Attack + Defense + Sp..Atk + Sp..Def + Speed + Type.2, data = train)
 predictions.lda = predict(model.lda, test)$class
 table(predictions.lda, test$Type.1)
 usefullness.lda = sum(predictions.lda == test$Type.1)
@@ -151,14 +151,13 @@ usefullness.lda = sum(predictions.lda == test$Type.1)
 library(nnet)
 
 data.nnet.c = subset(data, select = c("HP", "Attack", "Defense" , "Sp..Atk", "Sp..Def", "Speed"))
+data.nnet.c = cbind(data.nnet.c, class.ind(data$Type.2), class.ind(data$Type.1))
 maxs.c <- apply(data.nnet.c, 2, max)
 mins.c <- apply(data.nnet.c, 2, min)
 scaled.c = as.data.frame(scale(data.nnet.c, center = mins.c, scale = maxs.c - mins.c))
-scaled.c = cbind(scaled.c, class.ind(data$Type.1))
 train_.c = scaled.c[index.train,]
 test_.c = scaled.c[index.test,]
 n.c <- names(train_.c)
-levels(data$Type.1)
 toPredictLabel = paste(levels(data$Type.1), collapse = " + ")
 f.c <- as.formula(paste(toPredictLabel, "~", paste(c("HP", "Attack", "Defense" , "Sp..Atk", "Sp..Def", "Speed"), collapse = " + ")))
 nn <- neuralnet(f.c,data=train_.c, hidden=c(2), linear.output=F, stepmax = 100000, act.fct = "logistic")
@@ -169,7 +168,7 @@ usefullness.nnet = sum(test$Type.1 == predictions)
 
 ### RandomForest
 
-model.rf.c = randomForest(Type.1 ~ HP + Attack + Defense + Sp..Atk + Sp..Def + Speed, train, keep.forest=T, ntree=100)
+model.rf.c = randomForest(Type.1 ~ HP + Attack + Defense + Sp..Atk + Sp..Def + Speed + Type.2, train, keep.forest=T, ntree=100)
 usefullness.rf = sum(predict(model.rf.c, test) == test$Type.1)
 
 print(paste("KNN: ",usefullness.knn))
