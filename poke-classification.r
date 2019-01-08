@@ -21,7 +21,7 @@ test = scaled[index.test,]
 toPredictLabel = paste(colnames(type.indicator), collapse = " + ")
 PredicatorsLabel = paste(c("HP", "Attack", "Defense" , "Sp..Atk", "Sp..Def", "Speed"), collapse = " + ")
 f = as.formula(paste(toPredictLabel, " ~ ", PredicatorsLabel))
-nn <- neuralnet(f,data=train, hidden=5, linear.output=F, stepmax = 100000, err.fct = "ce")
+nn <- neuralnet(f,data=train, hidden=c(5), linear.output=F, stepmax = 100000, err.fct = "ce")
 test.values = test[,1:6]
 test.indicator = test[,-(1:6)]
 pr.nn = compute(nn, test.values)
@@ -35,9 +35,8 @@ for(i in 1:nrow(results.c)) {
 second.predicted.type = max.col(results.c)
 first.predicted.type.name = colnames(type.indicator)[first.predicted.type]
 second.predicted.type.name = colnames(type.indicator)[second.predicted.type]
-
 types = data[index.test,]$Type.1
 types.2 = data[index.test,]$Type.2
+levels(types.2) = c("None", levels(types.2)[-1])
 optimistic.test <- types == first.predicted.type.name | types == second.predicted.type.name | types.2 == first.predicted.type.name | types.2 == second.predicted.type.name
 sum(optimistic.test)
-
