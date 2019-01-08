@@ -151,19 +151,19 @@ usefullness.lda = sum(predictions.lda == test$Type.1)
 library(nnet)
 
 data.nnet.c = subset(data, select = c("HP", "Attack", "Defense" , "Sp..Atk", "Sp..Def", "Speed"))
-data.nnet.c = cbind(data.nnet.c, class.ind(data$Type.2), class.ind(data$Type.1))
 maxs.c <- apply(data.nnet.c, 2, max)
 mins.c <- apply(data.nnet.c, 2, min)
 scaled.c = as.data.frame(scale(data.nnet.c, center = mins.c, scale = maxs.c - mins.c))
+scaled.c = cbind(scaled.c, class.ind(data$Type.1))
 train_.c = scaled.c[index.train,]
 test_.c = scaled.c[index.test,]
 n.c <- names(train_.c)
+levels(data$Type.1)
 toPredictLabel = paste(levels(data$Type.1), collapse = " + ")
 f.c <- as.formula(paste(toPredictLabel, "~", paste(c("HP", "Attack", "Defense" , "Sp..Atk", "Sp..Def", "Speed"), collapse = " + ")))
 nn <- neuralnet(f.c,data=train_.c, hidden=c(2), linear.output=F, stepmax = 100000, act.fct = "logistic")
 pr.nn <- compute(nn,test_.c[,1:6])
-pr.nn = pr.nn$net.result
-predictions = levels(data$Type.1)[max.col(pr.nn)]
+predictions = levels(data$Type.1)[max.col(pr.nn$net.result)]
 usefullness.nnet = sum(test$Type.1 == predictions)
 
 ### RandomForest
